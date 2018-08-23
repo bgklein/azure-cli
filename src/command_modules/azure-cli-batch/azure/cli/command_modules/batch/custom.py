@@ -18,8 +18,8 @@ from azure.mgmt.batch.operations import (ApplicationPackageOperations)
 
 from azure.batch.models import (CertificateAddParameter, PoolStopResizeOptions, PoolResizeParameter,
                                 PoolResizeOptions, JobListOptions, JobListFromJobScheduleOptions,
-                                TaskAddParameter, TaskConstraints, PoolUpdatePropertiesParameter,
-                                StartTask, AffinityInformation)
+                                TaskAddParameter, TaskAddCollectionParameter, TaskConstraints,
+                                PoolUpdatePropertiesParameter, StartTask, AffinityInformation)
 
 from azure.cli.core.commands.client_factory import get_mgmt_service_client
 from azure.cli.core.profiles import get_sdk, ResourceType
@@ -28,7 +28,6 @@ from azure.cli.core.util import sdk_no_wait, get_file_json, in_cloud_console
 
 logger = get_logger(__name__)
 MAX_TASKS_PER_REQUEST = 100
-
 
 def transfer_doc(source_func, *additional_source_funcs):
     def _decorator(func):
@@ -39,7 +38,6 @@ def transfer_doc(source_func, *additional_source_funcs):
 
     return _decorator
 
-
 # Mgmt custom commands
 
 def list_accounts(client, resource_group_name=None):
@@ -47,6 +45,16 @@ def list_accounts(client, resource_group_name=None):
         if resource_group_name else client.list()
     return list(acct_list)
 
+def get_account(cmd, client, resource_group_name=None, account_name=None):
+    if resource_group_name is not None and account_name is not None:
+        return client.get(resource_group_name, account_name)
+    else:
+        account_list = list_accounts(client)
+
+        account_endpoint = cmd.cli_ctx.config.get('batch', 'endpoint')
+        for account in account_list:
+            if account.account_endpoint in account_endpoint:
+                return account
 
 @transfer_doc(AutoStorageBaseProperties)
 def create_account(client,
@@ -272,11 +280,12 @@ def list_job(client, job_schedule_id=None, filter=None,  # pylint: disable=redef
                                                 expand=expand)
         return list(client.list_from_job_schedule(job_schedule_id=job_schedule_id,
                                                   job_list_from_job_schedule_options=option1))
+    else:
+        option2 = JobListOptions(filter=filter,
+                                 select=select,
+                                 expand=expand)
+        return list(client.list(job_list_options=option2))
 
-    option2 = JobListOptions(filter=filter,
-                             select=select,
-                             expand=expand)
-    return list(client.list(job_list_options=option2))
 
 
 @transfer_doc(TaskAddParameter, TaskConstraints, AffinityInformation)
@@ -292,12 +301,15 @@ def create_task(client,
         try:
             task = TaskAddParameter.from_dict(json_obj)
         except DeserializationError:
-            tasks = []
             try:
-                for json_task in json_obj:
-                    tasks.append(TaskAddParameter.from_dict(json_task))
-            except (DeserializationError, TypeError):
-                raise ValueError("JSON file '{}' is not formatted correctly.".format(json_file))
+                task_collection = TaskAddCollectionParameter.from_dict(json_obj)
+                tasks = task_collection.value
+            except DeserializationError:
+                try:
+                    for json_task in json_obj:
+                        tasks.append(TaskAddParameter.from_dict(json_task))
+                except (DeserializationError, TypeError):
+                    raise ValueError("JSON file '{}' is not formatted correctly.".format(json_file))
     else:
         if command_line is None or task_id is None:
             raise ValueError("Missing required arguments.\nEither --json-file, "
