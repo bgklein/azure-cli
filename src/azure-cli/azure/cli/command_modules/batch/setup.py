@@ -33,7 +33,7 @@ CLASSIFIERS = [
 ]
 
 DEPENDENCIES = [
-    'azure-batch==6.0.0',
+    'azure-batch==7.0.0',
     'azure-mgmt-batch==6.0.0',
     'azure-mgmt-keyvault==1.1.0',
     'azure-cli-core'

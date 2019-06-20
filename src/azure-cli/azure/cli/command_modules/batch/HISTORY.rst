@@ -3,6 +3,13 @@
 Release History
 ===============
 
+5.0.0
++++++
+* Updated to Batch SDK and Batch Management Plane SDK to 7.0.0
+    * **[Breaking]** Replaced `az batch pool node-agent-skus list` with `az batch pool supported-images list`. The new command contains all of the same information originally available, but in a clearer format. New non-verified images are also now returned. Additional information about capabilities and batchSupportEndOfLife is accessible on the imageInformation object returned.
+    * When using --json-file option of `az batch pool create` network security rules blocking network access to a pool based on the source port of the traffic is now supported. This is done via the SourcePortRanges property on NetworkSecurityGroupRule.
+    * When using --json-file option of `az batch task create` and running a container, Batch now supports executing the task in the container working directory or in the Batch task working directory. This is controlled by the WorkingDirectory property on TaskContainerSettings.
+
 4.0.3
 +++++
 * Fix AAD auth regression caused by over-aggressive error reporting for Shared Key Auth.
